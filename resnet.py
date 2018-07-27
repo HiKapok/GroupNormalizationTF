@@ -62,14 +62,15 @@ class ResNetGN(object):
 
     def group_normalization(self, inputs, training, group, scope=None):
         with tf.variable_scope(scope, 'group_normalization', [inputs], reuse=tf.AUTO_REUSE):
+            input_shape = tf.shape(inputs)
             if self._data_format == 'channels_last':
                 _, H, W, C = inputs.get_shape().as_list()
                 gamma = tf.get_variable('scale', shape=[C], dtype=tf.float32, initializer=tf.ones_initializer(), trainable=training)
                 beta = tf.get_variable('bias', shape=[C], dtype=tf.float32, initializer=tf.zeros_initializer(), trainable=training)
-                inputs = tf.reshape(inputs, [-1, H, W, group, C // group], name='unpack')
+                inputs = tf.reshape(inputs, [-1, input_shape[1], input_shape[2], group, C // group], name='unpack')
                 mean, var = tf.nn.moments(inputs, [1, 2, 4], keep_dims=True)
                 inputs = (inputs - mean) / tf.sqrt(var + self._gn_epsilon)
-                inputs = tf.reshape(inputs, [-1, H, W, C], name='pack')
+                inputs = tf.reshape(inputs, input_shape, name='pack')
                 gamma = tf.reshape(gamma, [1, 1, 1, C], name='reshape_gamma')
                 beta = tf.reshape(beta, [1, 1, 1, C], name='reshape_beta')
                 return inputs * gamma + beta
@@ -77,10 +78,10 @@ class ResNetGN(object):
                 _, C, H, W = inputs.get_shape().as_list()
                 gamma = tf.get_variable('scale', shape=[C], dtype=tf.float32, initializer=tf.ones_initializer(), trainable=training)
                 beta = tf.get_variable('bias', shape=[C], dtype=tf.float32, initializer=tf.zeros_initializer(), trainable=training)
-                inputs = tf.reshape(inputs, [-1, group, C // group, H, W], name='unpack')
+                inputs = tf.reshape(inputs, [-1, group, C // group, input_shape[2], input_shape[3]], name='unpack')
                 mean, var = tf.nn.moments(inputs, [2, 3, 4], keep_dims=True)
                 inputs = (inputs - mean) / tf.sqrt(var + self._gn_epsilon)
-                inputs = tf.reshape(inputs, [-1, C, H, W], name='pack')
+                inputs = tf.reshape(inputs, input_shape, name='pack')
                 gamma = tf.reshape(gamma, [1, C, 1, 1], name='reshape_gamma')
                 beta = tf.reshape(beta, [1, C, 1, 1], name='reshape_beta')
                 return inputs * gamma + beta
